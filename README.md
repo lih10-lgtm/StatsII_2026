@@ -1,6 +1,6 @@
 # Repository for Applied Stats II @ TCD in Spring 2026
 
-Here, you can find code for in-person tutorials, .pdfs for practice, as well as problem sets.
+Here, you can find code for in-person tutorials, relevant datasets, as well as problem sets.
 
 ## About This Module
 
