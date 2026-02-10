@@ -1,0 +1,190 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage{graphicx,textcomp}
+\usepackage{natbib}
+\usepackage{setspace}
+\usepackage{fullpage}
+\usepackage{color}
+\usepackage[reqno]{amsmath}
+\usepackage{amsthm}
+\usepackage{fancyvrb}
+\usepackage{amssymb,enumerate}
+\usepackage[all]{xy}
+\usepackage{endnotes}
+\usepackage{lscape}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage[compact]{titlesec}
+\usepackage{dcolumn}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{listings}
+
+
+\setlength{\parskip}{1em} 
+\setlength{\parindent}{0pt} 
+
+
+\newcolumntype{.}{D{.}{.}{-1}}
+\newcolumntype{d}[1]{D{.}{.}{#1}}
+
+
+\definecolor{light-gray}{gray}{0.65}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},   
+	commentstyle=\color{codegreen},
+	keywordstyle=\color{magenta},
+	numberstyle=\tiny\color{codegray},
+	stringstyle=\color{codepurple},
+	basicstyle=\footnotesize\ttfamily,
+	breakatwhitespace=false,         
+	breaklines=true,                 
+	captionpos=b,                    
+	keepspaces=true,                 
+	numbers=left,                    
+	numbersep=5pt,                  
+	showspaces=false,                
+	showstringspaces=false,
+	showtabs=false,                  
+	tabsize=2
+}
+\lstset{style=mystyle}
+
+
+\title{Problem Set 1}
+\date{\today}
+\author{Hanyu Li (25346841)}
+
+\begin{document}
+	\maketitle
+	
+	\section*{Instructions}
+	\begin{itemize}
+		\item Please show your work! You may lose points by simply writing in the answer. If the problem requires you to execute commands in \texttt{R}, please include the code you used to get your answers. Please also include the \texttt{.R} file that contains your code. If you are not sure if work needs to be shown for a particular problem, please ask.
+		\item Your homework should be submitted electronically on GitHub in \texttt{.pdf} form.
+		\item This problem set is due before 23:59 on Wednesday February 11, 2026. No late assignments will be accepted.
+	\end{itemize}
+	
+	\vspace{0.5cm} 
+	
+	
+	\section*{Question 1} 
+	\noindent The Kolmogorov-Smirnov test uses cumulative distribution statistics test the similarity of the empirical distribution of some observed data and a specified PDF, and serves as a goodness of fit test. The test statistic is created by:
+	
+	$$D = \max_{i=1:n} \Big\{ \frac{i}{n}  - F_{(i)}, F_{(i)} - \frac{i-1}{n} \Big\}$$
+	
+	\noindent where $F$ is the theoretical cumulative distribution of the distribution being tested and $F_{(i)}$ is the $i$th ordered value. Intuitively, the statistic takes the largest absolute difference between the two distribution functions across all $x$ values. Large values indicate dissimilarity and the rejection of the hypothesis that the empirical distribution matches the queried theoretical distribution. The p-value is calculated from the Kolmogorov-Smirnoff CDF:
+	
+	$$p(D \leq d)= \frac{\sqrt {2\pi}}{d} \sum _{k=1}^{\infty }e^{-(2k-1)^{2}\pi ^{2}/(8d^{2})}$$
+	
+	\noindent which generally requires approximation methods (see \href{https://core.ac.uk/download/pdf/25787785.pdf}{Marsaglia, Tsang, and Wang 2003}). This so-called non-parametric test (this label comes from the fact that the distribution of the test statistic does not depend on the distribution of the data being tested) performs poorly in small samples, but works well in a simulation environment. Write an \texttt{R} function that implements this test where the reference distribution is normal. Using \texttt{R} generate 1,000 Cauchy random variables (\texttt{rcauchy(1000, location = 0, scale = 1)}) and perform the test (remember, use the same seed, something like \texttt{set.seed(123)}, whenever you're generating your own data).\\
+	
+	\noindent As a hint, you can create the empirical distribution and theoretical CDF using this code:
+	
+	\begin{lstlisting}[language=R]
+		# create empirical distribution of observed data
+		ECDF <- ecdf(data)
+		empiricalCDF <- ECDF(data)
+		# generate test statistic
+		D <- max(abs(empiricalCDF - pnorm(data))) 
+	\end{lstlisting}
+	
+	\subsection*{Answer}
+	
+	First, we defined the function \texttt{KST} to return the test statistic $D$ and calculate the $p$-value.
+	
+	\lstinputlisting[language=R, firstline=39, lastline=60]{PS01_HL.R}
+	
+	Second, test data from a Cauchy distribution was generated to perform the test. We set the significance level at $\alpha = 0.05$. The hypotheses are shown below:
+	
+	\begin{itemize}
+		\item $H_0$: The distribution of the test data (empirical statistics) matches the normal distribution (queried theoretical distribution).
+		\item $H_a$: The distribution of the test data (empirical statistics) shows dissimilarity to the normal distribution (queried theoretical distribution).
+	\end{itemize}
+	
+	Then, the Kolmogorov-Smirnov test was run, yielding a test statistic of $D = 0.1347281$ and a $p$-value of $5.65 \times 10^{-29}$.
+	
+	\lstinputlisting[language=R, firstline=62, lastline=66]{PS01_HL.R}
+	
+	From the results, we can say that: since the $p$-value is far below our specified threshold of 0.05, we have enough evidence to reject the null hypothesis and conclude that the distribution of the test data shows dissimilarity to the normal distribution.
+	
+	\vspace{1cm} 
+	
+
+	\section*{Question 2}
+	\noindent Estimate an OLS regression in \texttt{R} that uses the Newton-Raphson algorithm (specifically \texttt{BFGS}, which is a quasi-Newton method), and show that you get the equivalent results to using \texttt{lm}. Use the code below to create your data.
+	
+	\lstinputlisting[language=R, firstline=51,lastline=53]{PS01_HL.R} 
+	
+	\subsection*{Answer}
+	
+	According to the Newton-Raphson algorithm, to estimate the OLS model using MLE, we proceed with the following steps:
+	
+	First, we assume the data follow a normal probability distribution, with mean $x\beta$ and variance $\sigma^2$, i.e., $y \sim N(x\beta, \sigma^2)$.
+	
+	Next, we express it as the equivalent probability density function:
+	$$f(y_i \mid \beta, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(y_i - x_i\beta)^2}{2\sigma^2}}$$
+	
+	To calculate the likelihood function, we take the product of probabilities to obtain the likelihood function:
+	$$L = (2\pi)^{-n/2} \cdot (\sigma^2)^{-n/2} \cdot e^{-\frac{1}{2\sigma^2}\sum_{i=1}^{n} (y_i - x_i\beta)^2}$$
+	
+	To facilitate calculation in \texttt{R}, we take the logarithm of the likelihood function to obtain the log-likelihood form:
+	$$\log(L) = -\frac{n}{2}\log(2\pi) - \frac{n}{2}\log(\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^{n} (y_i - x_i\beta)^2$$
+	
+	Due to the computational characteristics of \texttt{R}, we finally return the negative log-likelihood.
+	
+	\lstinputlisting[language=R, firstline=75,lastline=88]{PS01_HL.R} 
+	
+	Next, we randomly assign initial values to the intercept, coefficients, and sigma in the original function, and apply the Newton-Raphson algorithm for iteration. The final model parameters are:
+	\begin{itemize}
+		\item final intercept: 0.1391874 
+		\item final\_beta: 2.726699 
+		\item final\_sigma: 1.439545
+	\end{itemize}
+	
+	\lstinputlisting[language=R, firstline=90,lastline=104]{PS01_HL.R} 
+	
+	Finally, we run the OLS regression model for cross-validation. The regression results are as follows:
+	
+	\lstinputlisting[language=R, firstline=106,lastline=108]{PS01_HL.R} 
+	
+	\begin{table}[H] 
+		\centering 
+		\caption{OLS Regression Results} 
+		\label{tab:ols_results} 
+		\begin{tabular}{@{\extracolsep{5pt}}lc} 
+			\\[-1.8ex]\hline 
+			\hline \\[-1.8ex] 
+			& \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+			\cline{2-2} 
+			\\[-1.8ex] & y \\ 
+			\hline \\[-1.8ex] 
+			x & 2.727$^{***}$ \\ 
+			& (0.042) \\ 
+			& \\ 
+			Constant & 0.139 \\ 
+			& (0.253) \\ 
+			& \\ 
+			\hline \\[-1.8ex] 
+			Observations & 200 \\ 
+			R$^{2}$ & 0.956 \\ 
+			Adjusted R$^{2}$ & 0.956 \\ 
+			Residual Std. Error & 1.447 (df = 198) \\ 
+			F Statistic & 4,298.687$^{***}$ (df = 1; 198) \\ 
+			\hline 
+			\hline \\[-1.8ex] 
+			\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+		\end{tabular} 
+	\end{table} 
+	
+	We find that the intercept and coefficients calculated via Maximum Likelihood Estimation are consistent with the results from directly running the OLS regression model. The intercept is approximately 0.139, and the independent variable coefficient is approximately 2.726.
+	
+\end{document}
