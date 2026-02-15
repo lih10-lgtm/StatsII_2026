@@ -1,0 +1,241 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage{graphicx,textcomp}
+\usepackage{natbib}
+\usepackage{setspace}
+\usepackage{fullpage}
+\usepackage{color}
+\usepackage[reqno]{amsmath}
+\usepackage{amsthm}
+\usepackage{fancyvrb}
+\usepackage{amssymb,enumerate}
+\usepackage[all]{xy}
+\usepackage{endnotes}
+\usepackage{lscape}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage[compact]{titlesec}
+\usepackage{dcolumn}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{listings}
+
+% 全局排版设置
+\setlength{\parskip}{1em} 
+\setlength{\parindent}{0pt} % 确保首字母顶格对齐
+
+\newcolumntype{.}{D{.}{.}{-1}}
+\newcolumntype{d}[1]{D{.}{.}{#1}}
+
+\definecolor{light-gray}{gray}{0.65}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},   
+	commentstyle=\color{codegreen},
+	keywordstyle=\color{magenta},
+	numberstyle=\tiny\color{codegray},
+	stringstyle=\color{codepurple},
+	basicstyle=\footnotesize\ttfamily,
+	breakatwhitespace=false,         
+	breaklines=true,                 
+	captionpos=b,                    
+	keepspaces=true,                 
+	numbers=left,                    
+	numbersep=5pt,                  
+	showspaces=false,                
+	showstringspaces=false,
+	showtabs=false,                  
+	tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{Problem Set 2}
+\date{\today}
+\author{Hanyu Li (25346841)}
+
+\begin{document}
+	\maketitle
+	
+	\section*{Instructions}
+	\begin{itemize}
+		\item Please show your work! You may lose points by simply writing in the answer. If the problem requires you to execute commands in \texttt{R}, please include the code you used to get your answers. Please also include the \texttt{.R} file that contains your code. If you are not sure if work needs to be shown for a particular problem, please ask.
+		\item Your homework should be submitted electronically on GitHub in \texttt{.pdf} form.
+		\item This problem set is due before 23:59 on Wednesday February 18, 2026. No late assignments will be accepted.
+	\end{itemize}
+	
+	\vspace{0.5cm} 
+	
+	\noindent We're interested in what types of international environmental agreements or policies people support (Bechtel and Scheve 2013). So, we asked 8,500 individuals whether they support a given policy, and for each participant, we vary the (1) number of countries that participate in the international agreement and (2) sanctions for not following the agreement.\\
+	
+	\noindent Load in the data labeled \texttt{climateSupport.RData} on GitHub, which contains an observational study of 8,500 observations.
+	
+	\begin{itemize}
+		\item Response variable: \texttt{choice} (1 if supported, 0 otherwise).
+		\item Explanatory variables: \texttt{countries} and \texttt{sanctions}.
+	\end{itemize}
+	
+	\vspace{1.5cm}
+	
+	\section*{Question 1} 
+	\noindent Remember, we are interested in predicting the likelihood of an individual supporting a policy based on the number of countries participating and the possible sanctions for non-compliance. Fit an additive model. Provide the summary output, the global null hypothesis, and $p$-value. Please describe the results and provide a conclusion.
+	
+	\vspace{0.5cm}
+	
+	\subsection*{Answer}
+	Given in the raw data, predictors are coded as factors, so to make the model interpretation more clear we first transformed variables \textit{countries} and \textit{sanctions} (with unit of percentage) as numeric ones.
+	
+	\lstinputlisting[language=R, firstline=39, lastline=59]{PS02_HL.R}
+	
+	In the framework of Generalized Linear Models (GLM), we employ the logit link function to model the probability of policy support. Specifically, we estimate the following equation to interpret the relationship between the explanatory variables and the log-odds of support:
+	
+	\begin{equation}
+		\ln \left( \frac{P(Y_i = 1)}{1 - P(Y_i = 1)} \right) = \beta_0 + \beta_{\text{countries}} \cdot \text{Countries}_i + \beta_{\text{sanctions}} \cdot \text{Sanctions}_i
+	\end{equation}
+	
+	\noindent where $P(Y_i=1)$ represents the probability that individual $i$ supports the policy, $\text{Countries}_i$ shows the number of participating countries, and $\text{Sanctions}_i$ denotes the sanction level. Then we fit an additive model and got outcomes as follows:
+	
+	\lstinputlisting[language=R, firstline=61, lastline=65]{PS02_HL.R}
+	
+	\begin{table}[H] \centering 
+		\caption{Logistic Regression Results} 
+		\begin{tabular}{@{\extracolsep{5pt}}lc} 
+			\\[-1.8ex]\hline 
+			\hline \\[-1.8ex] 
+			& \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+			\cline{2-2} 
+			\\[-1.8ex] & Support for Policy \\ 
+			\hline \\[-1.8ex] 
+			Countries (N) & 0.005$^{***}$ \\ 
+			& (0.0004) \\ 
+			Sanctions (Percentage) & $-$0.017$^{***}$ \\ 
+			& (0.003) \\ 
+			Constant & $-$0.272$^{***}$ \\ 
+			& (0.045) \\ 
+			\hline \\[-1.8ex] 
+			Observations & 8,500 \\ 
+			Log Likelihood & $-$5,800.915 \\ 
+			Akaike Inf. Crit. & 11,607.830 \\ 
+			\hline 
+			\hline \\[-1.8ex] 
+			\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+		\end{tabular} 
+	\end{table}
+	
+	To assess the model fit, we can have the global null hypothesis:
+	\begin{itemize}
+		\item $H_0$: $\beta_{\text{countries}} = \beta_{\text{sanctions}} = 0$
+		\item $H_a$: at least one $\beta$ not equal to 0
+	\end{itemize}
+	
+	After implementing full (additive model including all predictors) and reduced (reduced model only has intercept) likelihood ratio test, we got the following results.
+	
+	\lstinputlisting[language=R, firstline=75, lastline=78]{PS02_HL.R}
+	
+	\begin{verbatim}
+		Model 1: choice ~ 1
+		Model 2: choice ~ countries_n + sanctions_n
+		Resid. Df Resid. Dev Df Deviance  Pr(>Chi)    
+		1      8499      11783                       
+		2      8497      11602  2   181.58 < 2.2e-16 ***
+		---
+		Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+	\end{verbatim}
+	
+	From the above analysis, we can conclude that:
+	\begin{itemize}
+		\item As the deviance table shows, $p\text{-value} < 0.001$, we have enough evidence to reject $H_0$ and conclude that at least one predictor in the full model explains variation in log-odds of policy support.
+		\item In the additive model outcome, both the number of participating countries ($p < 0.001$) and the level of sanctions ($p < 0.001$) are statistically associated with the log-odds of supporting the policy.
+		\item Specifically, holding the level of sanctions constant, for every one-unit increase in the number of participating countries, the odds of an individual supporting the policy increase by a multiplicative factor of $e^{0.0046} \approx 1.005$ (or approximately a 0.5\% increase in the odds).
+		\item Controlling for the number of participating countries, for every one percentage increase in sanctions, the odds of supporting the policy change by a multiplicative factor of $e^{-0.0174} \approx 0.983$. This indicates that higher sanctions are associated with a decrease in the odds of support by approximately 1.7\%.
+	\end{itemize}
+	
+	\vspace{1.5cm}
+	
+	\section*{Question 2}
+	\noindent If any of the explanatory variables are statistically significant in this model, then: (a) calculate the odds change for 160 countries with sanctions increasing from 5\% to 15\%; (b) calculate the same for 20 countries; (c) calculate estimated probability for 80 countries with no sanctions.
+	
+	\vspace{0.5cm}
+	
+	\subsection*{Answer}
+	Based on the regression results from Question 1, the fitted prediction equation for the log-odds of supporting the policy is:
+	\begin{equation}
+		\ln \left( \frac{\hat{P}(Y=1)}{1 - \hat{P}(Y=1)} \right) = -0.2719 + 0.0046 \cdot \text{Countries} - 0.0174 \cdot \text{Sanctions}
+	\end{equation}
+	
+	\noindent where $\text{Countries}$ is the number of participating countries and $\text{Sanctions}$ is the sanction level (in percentage).
+	
+	(a) For the policy in which nearly all countries participate [160 of 192], we have:
+	\begin{align*}
+		\Delta \text{log-odds} &= (-0.2719 + 0.0046 \cdot 160 - 0.0174 \cdot 15) - (-0.2719 + 0.0046 \cdot 160 - 0.0174 \cdot 5) \\
+		&= -0.0174 \cdot (15 - 5) \\
+		&= -0.0174 \cdot 10 = -0.174
+	\end{align*}
+	which means the log-odds decrease by 0.174, and the odds of support change by a multiplicative factor of $e^{-0.174} \approx 0.840$ (a 16.0\% decrease).
+	
+	(b) For the policy in which very few countries participate [20 of 192], we have:
+	\begin{align*}
+		\Delta \text{log-odds} &= (-0.2719 + 0.0046 \cdot 20 - 0.0174 \cdot 15) - (-0.2719 + 0.0046 \cdot 20 - 0.0174 \cdot 5) \\
+		&= -0.0174 \cdot (15 - 5) \\
+		&= -0.174
+	\end{align*}
+	which means the log-odds decrease by 0.174, and the odds change by a factor of $e^{-0.174} \approx 0.840$ (identical to part a).
+	
+	(c) To estimate the probability for 80 countries with no sanctions, we substitute values into the equation:
+	\begin{align*}
+		\text{log-odds} &= -0.2719 + 0.0046 \cdot 80 - 0.0174 \cdot 0 = 0.0961 \\
+		\hat{P}(Y=1) &= \frac{e^{0.0961}}{1 + e^{0.0961}} \approx 0.524
+	\end{align*}
+	The estimated probability that an individual will support the policy is approximately \textbf{52.4\%}.
+	
+	\vspace{1.5cm}
+	
+	\section*{Question 3}
+	\noindent Would the answers to 2a and 2b potentially change if we included an interaction term in this model? Why? Perform a test to see if including an interaction is appropriate.
+	
+	\vspace{0.5cm}
+	
+	\subsection*{Answer}
+	To assess whether including an interaction term improves model fit, we estimated a full interaction model and performed a Likelihood Ratio Test (LRT) comparing it with the reduced additive model.
+	
+	$H_0$: Effect of number of participant countries is the same among sanction levels\\
+	$H_a$: Effect of number of participant countries is different among sanction levels
+	
+	\lstinputlisting[language=R, firstline=80, lastline=91]{PS02_HL.R}
+	
+	\begin{table}[H] \centering 
+		\caption{Comparison of Additive and Interaction Models} 
+		\begin{tabular}{@{\extracolsep{5pt}}lcc} 
+			\\[-1.8ex]\hline 
+			\hline \\[-1.8ex] 
+			& Additive (1) & Interaction (2) \\ 
+			\hline \\[-1.8ex] 
+			Countries (N) & 0.005$^{***}$ & 0.004$^{***}$ \\ 
+			Sanctions (\%) & $-$0.017$^{***}$ & $-$0.019$^{***}$ \\ 
+			Countries x Sanctions &  & 0.00002 \\ 
+			Constant & $-$0.272$^{***}$ & $-$0.257$^{***}$ \\ 
+			\hline \\[-1.8ex] 
+			Observations & 8,500 & 8,500 \\ 
+			AIC & 11,607.830 & 11,609.620 \\ 
+			\hline 
+		\end{tabular} 
+	\end{table}
+	Through the above table in comparison,we can see slight change in intercept and coefficients between additive and interaction models.\\
+	
+	The results of Likelihood Ratio Test shows that $p\text{-value} = 0.6475$, which is greater than the common threshold significance level 0.05. We don't have sufficient evidence to reject $H_0$, or there is no statistical evidence that the effect of number of countries depends on sanction levels. We can thus conclude that an interaction term is not appropriate, and the additive model fits the data sufficiently well.It's not necessary to change answers in Question 2.
+	
+	\begin{verbatim}
+		Analysis of Deviance Table
+		Model 1: choice ~ countries_n + sanctions_n
+		Model 2: choice ~ countries_n * sanctions_n
+		Resid. Df Resid. Dev Df Deviance Pr(>Chi)
+		1      8497      11602                     
+		2      8496      11602  1  0.20905   0.6475
+	\end{verbatim}
+	
+\end{document}
