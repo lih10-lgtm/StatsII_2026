@@ -1,0 +1,448 @@
+---
+title: "From Hashtags To Ballots - Analysis of Survey Data"
+format: html
+editor: visual
+---
+
+This document includes the analysis of our survey of German citizens.
+
+## Setup
+
+We load necessary libraries and the main dataset, which already includes the responses of all participants from our quota sample:
+
+```{r}
+library(tidyverse)
+library(sjmisc)
+library(scales)
+library(sjPlot)
+library(sjlabelled)
+library(lubridate)
+library(hrbrthemes)
+library(cowplot)
+
+df <- read_stata("btw2021_influencers_survey.dta") 
+nrow(df)
+
+# removing speeders and incomplete observations
+df <- df |>   filter(!is.na(duration) & duration >= 120)
+nrow(df)
+```
+
+We recode several variables and create new indicators:
+
+```{r}
+df <- df |>
+  # respondent id
+  mutate(respondent_id = str_c("r_", as.character(respondent_id))) |>
+  set_na(na = c(99, "99")) 
+
+df <- df |>
+  mutate(
+    # education as categorical
+    edu_cat =
+      case_when(
+        edu %in% 1:3 ~ 1,
+        edu == 4 ~ 2,
+        edu %in% 5:6 ~ 3,
+        str_contains(edu_other, "Berufsschule") ~ 1,
+        str_contains(edu_other, c("Studi|Promotion|Meister")) ~ 3
+      ) |> set_labels(labels = c(
+        "low" = 1,
+        "mid" = 2,
+        "high" = 3
+      ))
+    |> as_factor(),
+    # dummy for female participants
+    female_dummy = rec(sex, rec = "2=1 [weiblich]; 1=0 [männlich]") |>
+      set_label("dummy: frau"),
+    # dummy for awareness about influencers
+    influ_dummy = rec(influ_aware, rec = "1=1 [ja] ; 2=0 [nein]"),
+    # dummy for following influencers
+    influ_follow_dummy =  rec(influ_follow, rec = "1=1 [ja] ; 2=0 [nein]"),
+    # dummy for low versus high political interest
+    polint_dummy = rec(polint, 
+           rec = "1:3=0 [wenig pol. Interesse]; 4:5 = 1 [viel pol. Interesse]"),
+    polint = as_numeric(polint)
+  )
+
+# count indicator for number of social media platforms used
+df <- df |> select(why_use_sm01:why_use_sm05)   |>
+  as_numeric() |>
+  add_columns(df)
+df <- df |> select(sm_whatsapp:sm_twitch) |>
+  mutate(sm_other = if_else(str_length(sm_other) > 1, "Y", "N")) |>
+  row_count(count = "Y",
+            var = "sm_count",
+            append = FALSE) |>
+  set_label("number of social media platforms used") |>
+  add_columns(df)
+
+# labels for "helpful for voting decision" indicators
+df$voteinfo_mat1 <- set_label(df$voteinfo_mat1, 
+                              "election advertizing of parties")
+df$voteinfo_mat2 <- set_label(df$voteinfo_mat2,
+                              "television news")
+df$voteinfo_mat3 <- set_label(df$voteinfo_mat3, 
+                              "reports in newspapers & magazines")
+df$voteinfo_mat4 <- set_label(df$voteinfo_mat4, 
+                              "online information")
+df$voteinfo_mat5 <- set_label(df$voteinfo_mat5, 
+                              "content of influencers")
+df$voteinfo_mat6 <- set_label(df$voteinfo_mat6, 
+                              "conversations with relatives & friends")
+
+# creating age / sex table for comparison to German census
+df <- df |> mutate(
+  age_sex =  case_when(
+    female_dummy == 1 & age %in% c(18:29) ~ "Female, Age 18-29",
+        female_dummy == 0 & age %in% c(18:29) ~ "Male, Age 18-29",
+    female_dummy == 1 & age %in% c(30:39) ~ "Female, Age 30-39",
+        female_dummy == 0 & age %in% c(30:39) ~ "Male, Age 30-39",
+    female_dummy == 1 & age %in% c(40:49) ~ "Female, Age 40-49",
+        female_dummy == 0 & age %in% c(40:49) ~ "Male, Age 40-49",
+    female_dummy == 1 & age %in% c(50:59) ~ "Female, Age 50-59",
+        female_dummy == 0 & age %in% c(50:59) ~ "Male, Age 50-59",
+    female_dummy == 1 & age %in% c(60:99) ~ "Female, Age 60+",
+    female_dummy == 0 & age %in% c(60:99) ~ "Male, Age 60+",
+    TRUE ~ NA
+  ) |> as_factor()
+)
+
+# categorical age indicator
+df <- df |> mutate(
+  age_cat =  case_when(
+    age %in% c(18:29) ~ "18-29",
+    age %in% c(30:39) ~ "30-39",
+    age %in% c(40:49) ~ "40-49",
+    age %in% c(50:59) ~ "50-59",
+    age %in% c(60:69) ~ "60-69",
+    age %in% c(70:99) ~ "70+",
+    TRUE ~ NA
+  ) |> as_factor()
+)
+```
+
+## Analysis for Main Paper
+
+### Visualization: Helpfulness for Voting Decision
+
+```{r fig.height=6, fig.width=9}
+likert_fig <-  
+df |> select(contains("voteinfo_mat")) |> 
+  set_labels(labels =  c(
+  "1 - not helpful" = "1", 
+  "4 - neutral" = "4",
+  "7 - very helpful"  =  "7"
+))  |>
+  plot_likert(
+    value = "sum.inside",
+    cat.neutral = 4,
+    show.n = FALSE,
+    legend.title = "Likert scale",
+    
+    geom.colors = viridis_pal(alpha = 0.8)(6)
+  ) + labs(title = NULL) +
+  theme_light(base_size = 14) +
+  theme(
+    legend.position = c(0.85, 0.60),
+    legend.background = element_blank(),
+    legend.box.background = element_rect(colour = "black")
+  )
+
+likert_fig
+```
+
+### Visualization: Helpfulness of influencer content by age and sex:
+
+```{r}
+df_helpful <-  df |> mutate(
+ age_cat2 =  case_when(
+    age %in% c(18:29) ~ "18-29",age %in% c(30:39) ~ "30-39",
+    age %in% c(40:49) ~ "40-49",
+    age %in% c(50:99) ~ "50+",
+    TRUE ~ NA) |> as_factor(),
+ infl_helpful_dummy = 
+    case_when(
+      is.na(voteinfo_mat5) ~ NA,
+      voteinfo_mat5 %in% c(1,2,3,4) ~"Not helpful /\nneutral",
+      TRUE ~ "Helpful") |> as_factor(),
+  sex = if_else(female_dummy == 1, "Female respondents", "Male respondents") |> 
+           as_factor())
+
+
+boxplot_fig <- 
+df_helpful |> select(infl_helpful_dummy, age, sex) |> drop_na() |> 
+  ggplot(aes(x = infl_helpful_dummy, y = age)) +
+  geom_violin(aes(fill = infl_helpful_dummy, alpha = 0.90), linewidth = 1) +
+  geom_boxplot(width = 0.15,
+               color = "black",
+               fill = "white") +
+  scale_fill_viridis_d(direction = -1, end = 0.95) +
+  theme_light()   +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 7)) + 
+  theme(
+    legend.position = "none") + facet_wrap(~sex) +
+  labs( x = "Content of influencers: helpful for voting decision",
+        y = "Age of respondents")
+
+boxplot_fig
+```
+
+Combining both plots in one figure:
+
+```{r, fig.height= 10, fig.width=8}
+plot_grid(likert_fig, boxplot_fig, labels = c('A', 'B'), ncol = 1,
+          label_size = 18)
+
+# adjust this path as needed
+ggsave("output/fig5.png", bg = "white",
+       units = "in", dpi = 300,
+     width = 8, height = 10)
+```
+
+### Regression Models
+
+The following code computes two logistig regression models for whether survey participants are aware of / follow influencers:
+
+```{r}
+# recode social media usage variables as numeric
+df <-  df |> mutate(
+  why_use_sm04 = as.numeric(why_use_sm04),
+  why_use_sm05 = as.numeric(why_use_sm05),
+  why_use_sm07 = as.numeric(why_use_sm07)
+)
+
+# model for influencer awareness
+influ_aware_reg <- glm(
+  influ_dummy ~ age + edu_cat + female_dummy +
+    sm_count +
+    why_use_sm04 + why_use_sm05 +  why_use_sm07 +
+    polint,
+  data = df,
+  family = "binomial"
+)
+
+# model for following influencers
+influ_follow_reg <- glm(
+  influ_follow_dummy ~ age + edu_cat + female_dummy +
+    sm_count +
+    
+    why_use_sm04 + why_use_sm05 +   why_use_sm07 +
+    polint  ,
+  data = df,
+  family = "binomial"
+)
+
+# regression table
+tab_model( influ_aware_reg, influ_follow_reg)
+```
+
+We compare and visualize both models using a forest plot:
+
+```{r fig.height=6, fig.width=9}
+plot_models(
+  influ_aware_reg,
+  influ_follow_reg,
+  
+  vline.color = "black",
+  transform = NULL,
+  axis.labels = c(
+    "Age",
+    "Education: mid (ref. = low)" ,
+    "Education: high (ref. = low)",
+    "Sex: Female",
+    "Number of SM used\n>= once per week",
+    "Using SM to follow persons of public interest",
+    "Using SM to follow companies or brands",
+    "Using SM for entertainment",
+    "Interest in politics"
+  ) |> rev()
+)  +
+  theme_light(base_size = 14) +
+  scale_y_continuous(limits = c(-1, 1.1)) +
+  scale_color_viridis_d(
+    end = 0.9,
+    labels = c(
+      "Following any influencers\n(n = 708)",
+      "Awareness of influencers\n(n = 924)"
+    )
+  ) +
+  theme(
+    legend.position = c(0.175, 0.17),
+    legend.box.background = element_rect(colour = "grey50")
+  ) +
+  
+  labs(
+    title = NULL,
+    x = "Covariates",
+    y = "Logits",
+    color = "Dependent Variables"
+  )
+
+# adjust this path as needed
+ggsave("output/fig4.png", bg = "white",
+      units = "in", dpi = 300,
+    width = 9, height = 6)
+```
+
+## Analysis for Supplementary Material
+
+We inspect frequency tables for socio-demographics of survey respondents:
+
+```{r}
+
+frq(df$age_sex)
+frq(df$edu_cat)
+frq(df$bl)
+```
+
+Creating a figure for the age and sex distribution of participants:
+
+```{r}
+df |> filter(is.na(female_dummy) == FALSE) |>
+  mutate(men_women = if_else(female_dummy == 1, "Female", "Male") |> 
+  as_factor())  |>
+  ggplot(aes(x = age_cat, fill = men_women)) +  geom_bar()  +
+  theme_light(base_size = 14) +
+  scale_fill_viridis_d(alpha = 0.8, begin = 0.2, end = 0.8) +
+  
+  theme(
+    legend.position = c(0.21, 0.6),
+    plot.caption = element_text(face = "italic"),
+    axis.text.y = element_text(size = 12),
+    legend.box.background = element_rect(colour = "grey50")
+  ) +
+  labs(fill = "Sex", x = "Age", y = "Observations")
+
+# adjust this path as needed
+ggsave(
+  "output/fig_s4.png",
+  bg = "white",
+  units = "in",
+  dpi = 300,
+  width = 9,
+  height = 6
+)
+```
+
+The following code creates a figure for a comparison of voting shares between the GLES Post-Election Survey, our own survey, and the actual results of the German federal election:
+
+```{r fig.height=6, fig.width=9, fig.showtext = TRUE}
+party_color <- c(
+  "SPD" = "#E3000F",
+  "CDU/CSU" = "#000000",
+  "GRUENE" = "#1AA037",
+  "FDP" =  "#FFEF00",
+  "AfD" = "#0489DB",
+  "LINKE" = "#E663A6"
+)
+sources <-  c("BTW21: Results", "GLES Post-Election", "Own Survey")
+spd <- c(25.7, 23.5, 27.7)
+union <- c(24.1, 17.4, 16.6)
+gruene <- c(14.8, 15.4, 15.6)
+fdp <- c(11.5, 9.8, 13.3)
+afd <- c(10.3, 5.5, 12.3)
+linke <- c(4.9, 4.0, 7.3)
+
+shares <- tibble(
+  vote_share = c(spd, union, gruene, fdp, afd, linke),
+  party = c(
+    rep(c("SPD"), 3),
+    rep(c("CDU/CSU"), 3) ,
+    rep(c("GRUENE"), 3),
+    rep(c("FDP"), 3),
+    rep(c("AfD"), 3),
+    rep(c("LINKE"), 3)
+  ) |> as_factor(),
+  source = rep(sources, 6) |> as_factor()
+)
+
+shares |> ggplot(aes(
+  x = reorder(party, vote_share),
+  y = vote_share,
+  fill = party
+)) + geom_col() +
+  geom_text(aes(label = vote_share),
+            hjust = 1.2,
+            color = "grey75") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  facet_wrap(~ source) + coord_flip() +
+  scale_fill_manual(values = party_color) +
+  labs(y = "Vote Share", x = "Party", fill = "Party") +
+  theme_light(base_size = 14) +
+  theme(legend.position = "none",
+        strip.text.x = element_text(size = 14))
+
+# adjust this path as needed
+ggsave(
+  "output/fig_s5.png",
+  bg = "white",
+  units = "in",
+  dpi = 300,
+  width = 9,
+  height = 6
+)
+```
+
+At last, we create a figure for voting shares differentiating between respondents who considered influencer content as either helpful or not helpful for their voting decision:
+
+```{r fig.height=6, fig.width=9}
+party_color <- c(
+  "SPD" = "#E3000F",
+  "CDU/CSU" = "#000000",
+  "DIE GRÜNEN" = "#1AA037",
+  "FDP" =  "#FFEF00",
+  "AFD" = "#0489DB",
+  "DIE LINKE" = "#E663A6",
+  "ANDERE PARTEI" = "grey60"
+)
+
+grped <- df |> select(btw_party, voteinfo_mat5) |> drop_na() |>
+  mutate(
+    party_char = as_label(btw_party) |>
+      str_to_upper(),
+    influ_vote_helpful = if_else(
+      voteinfo_mat5 %in% c("5", "6", "7"),
+      "Influencers helpful\nfor voting decision",
+      "Influencers not helpful\nfor voting decision"
+    )
+  )  |>
+  filter(!party_char  %in% c("UNGÜLTIGE STIMME ABGEGEBEN")) |>
+  
+  group_by(influ_vote_helpful, party_char) |> summarise(obs = n()) |>
+  ungroup() |>
+  group_by(influ_vote_helpful) |>
+  mutate(perc = prop.table(obs * 100))
+
+ggplot(grped  , # Draw barplot with grouping & stacking
+       aes(x = influ_vote_helpful, y = perc, fill = party_char)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           alpha = 0.8) +
+  scale_fill_manual(values = party_color) + theme_light(base_size = 14) +
+  scale_y_percent() +
+  
+  labs(
+    fill = "Vote for\nBTW 2021",
+    y = "Percent",
+    x = NULL,
+    caption = "Dichotomized likert scale (1 - not helpful at all to 7 - very helpful): 1-4 = not helpful, 5-7 = helpful"
+  ) +
+  
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    plot.caption = element_text(lineheight = 1.5, face = "italic")
+  )
+
+# adjust this path as needed
+ggsave(
+  "output/fig_s6.png",
+  bg = "white",
+  units = "in",
+  dpi = 300,
+  width = 9,
+  height = 6
+)
+```
